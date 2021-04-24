@@ -11,6 +11,8 @@
 		38402FFF2633B41900C3C4EA /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38402FFE2633B41900C3C4EA /* ViewController.swift */; };
 		384030012633B41A00C3C4EA /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 384030002633B41A00C3C4EA /* Assets.xcassets */; };
 		384030042633B41A00C3C4EA /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 384030022633B41A00C3C4EA /* Main.storyboard */; };
+		3840300D2633F55300C3C4EA /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3840300C2633F55300C3C4EA /* Document.swift */; };
+		3840300F2633F57C00C3C4EA /* Content.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3840300E2633F57C00C3C4EA /* Content.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -21,6 +23,8 @@
 		384030032633B41A00C3C4EA /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		384030052633B41A00C3C4EA /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		384030062633B41A00C3C4EA /* UseTextFinder.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = UseTextFinder.entitlements; sourceTree = "<group>"; };
+		3840300C2633F55300C3C4EA /* Document.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
+		3840300E2633F57C00C3C4EA /* Content.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Content.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -55,6 +59,8 @@
 			children = (
 				38402FFC2633B41900C3C4EA /* AppDelegate.swift */,
 				38402FFE2633B41900C3C4EA /* ViewController.swift */,
+				3840300C2633F55300C3C4EA /* Document.swift */,
+				3840300E2633F57C00C3C4EA /* Content.swift */,
 				384030002633B41A00C3C4EA /* Assets.xcassets */,
 				384030022633B41A00C3C4EA /* Main.storyboard */,
 				384030052633B41A00C3C4EA /* Info.plist */,
@@ -135,6 +141,8 @@
 			files = (
 				38402FFF2633B41900C3C4EA /* ViewController.swift in Sources */,
 				38402FFD2633B41900C3C4EA /* AppDelegate.swift in Sources */,
+				3840300D2633F55300C3C4EA /* Document.swift in Sources */,
+				3840300F2633F57C00C3C4EA /* Content.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -202,7 +210,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -256,7 +264,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET = 10.15;
+				MACOSX_DEPLOYMENT_TARGET = 10.10;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				SDKROOT = macosx;

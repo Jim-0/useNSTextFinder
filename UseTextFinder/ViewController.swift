@@ -8,20 +8,43 @@
 
 import Cocoa
 
-class ViewController: NSViewController {
+class ViewController: NSViewController, NSTextViewDelegate {
 
-    override func viewDidLoad() {
-        super.viewDidLoad()
-
-        // Do any additional setup after loading the view.
-    }
-
+    /// - Tag: setRepresentedObjectExample
     override var representedObject: Any? {
         didSet {
-        // Update the view, if already loaded.
+            // Pass down the represented object to all of the child view controllers.
+            for child in children {
+                child.representedObject = representedObject
+            }
         }
     }
 
+    weak var document: Document? {
+        if let docRepresentedObject = representedObject as? Document {
+            return docRepresentedObject
+        }
+        return nil
+    }
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        // Do any additional setup after loading the view.
+    }
+
+    override func viewDidAppear() {
+        super.viewDidAppear()
+    }
+
+    // MARK: - NSTextViewDelegate
+
+    func textDidBeginEditing(_ notification: Notification) {
+        document?.objectDidBeginEditing(self)
+    }
+
+    func textDidEndEditing(_ notification: Notification) {
+        document?.objectDidEndEditing(self)
+    }
 
 }
 
@@ -63,17 +86,22 @@ class MyTextView: NSTextView {
     }
 
     override func becomeFirstResponder() -> Bool {
-        textFinderClient.updateClientString()
-        textFinder.noteClientStringWillChange()
         print("MyTextView().becomeFirstResponder()")
-        return true
+        textFinder.noteClientStringWillChange()
+        textFinderClient.updateClientString()
+        return super.becomeFirstResponder()
     }
     
     override func resignFirstResponder() -> Bool {
-        textFinderClient.updateClientString()
-        textFinder.noteClientStringWillChange()
         print("MyTextView().resignFirstResponder()")
-        return true
+        return super.resignFirstResponder()
+    }
+
+    override func didChangeText() {
+        print("MyTextView().didChangeText()")
+        super.didChangeText()
+        self.textFinder.noteClientStringWillChange()
+        textFinderClient.updateClientString()
     }
 
 }
@@ -138,24 +166,19 @@ class MyTextFinderClient: NSTextFinderClient {
     func rects(forCharacterRange range: NSRange) -> [NSValue]? {
         print("MyTextFinderClient().rects(): <-", range)
 
-        var mutableRange = NSMakeRange(0, 1)
-        var textRect = textView.firstRect(forCharacterRange: mutableRange, actualRange: &mutableRange)
+        var values = [NSValue]()
 
-        let _origin = textRect.origin
-        mutableRange = range
-        textRect = textView.firstRect(forCharacterRange: mutableRange, actualRange: &mutableRange)
+        var rectCount = 0
+        let textView = self.textView
+        guard let layoutManager = textView.layoutManager,
+            let textContainer = textView.textContainer,
+            let textRects = layoutManager.rectArray(forCharacterRange: range, withinSelectedCharacterRange: range, in: textContainer, rectCount: &rectCount)
+            else { return nil }
+        for iii in 0..<rectCount {
+            values.append(NSValue(rect: textRects[iii]))
+        }
 
-        let _rect = self.textView.attributedSubstring(forProposedRange: range, actualRange: nil)!.boundingRect(with: NSMakeSize(7, 8), options: .usesLineFragmentOrigin)
-
-        textRect = NSMakeRect(
-            textRect.minX - _origin.x + _rect.width - 2,
-            _origin.y - textRect.minY + _rect.height - textRect.height - 1,
-            textRect.width,
-            textRect.height)
-
-        let values = [NSValue(rect: textRect)]
         print("MyTextFinderClient().rects(): ->", values)
-
         return values
 
     }
@@ -163,16 +186,10 @@ class MyTextFinderClient: NSTextFinderClient {
     /** After: rects(forCharacterRange:) **/
     func drawCharacters(in range: NSRange, forContentView view: NSView) {
         print("MyTextFinderClient().drawCharacters(): <-", range)
-        guard let textRects = rects(forCharacterRange: range) as? [NSRect]
+        guard let textView = view as? NSTextView
             else { return }
-        //textView.drawInsertionPoint(in: NSMakeRect(0, 0, 3, 33), color: .orange, turnedOn: true)
-        //textView.insertionPointColor = .orange
-        //NSColor.green.drawSwatch(in: textRect)
+        textView.layoutManager?.drawGlyphs(forGlyphRange: range, at: NSMakePoint(0, 0))
 
-        for iii in textRects {
-            textView.draw(iii)
-        }
-        
     }
 
     /* isSelectable == false */
