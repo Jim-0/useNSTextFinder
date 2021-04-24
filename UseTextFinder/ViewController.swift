@@ -73,8 +73,8 @@ class MyTextView: NSTextView {
             textFinder.incrementalSearchingShouldDimContentView = true
             textFinder.isIncrementalSearchingEnabled = true
             textFinderClient.documentContainerView = self
-            textFinderClient.dataSource = { return self.string }
-            textFinderClient.updateClientString()
+            textFinderClient.dataSource = { return (self.string, [0, self.string.count]) }
+            textFinderClient.updateClientData()
 
             textFinder.findBarContainer = self.enclosingScrollView!
             textFinder.client = textFinderClient
@@ -88,7 +88,7 @@ class MyTextView: NSTextView {
     override func becomeFirstResponder() -> Bool {
         print("MyTextView().becomeFirstResponder()")
         textFinder.noteClientStringWillChange()
-        textFinderClient.updateClientString()
+        textFinderClient.updateClientData()
         return super.becomeFirstResponder()
     }
     
@@ -101,7 +101,7 @@ class MyTextView: NSTextView {
         print("MyTextView().didChangeText()")
         super.didChangeText()
         self.textFinder.noteClientStringWillChange()
-        textFinderClient.updateClientString()
+        textFinderClient.updateClientData()
     }
 
 }
@@ -214,8 +214,10 @@ class MyTextFinderClient: NSTextFinderClient {
     }
 
     /* NSTextFinder.Action => hideFindInterface */
-    @objc func firstResponderWhenDeactivated() {
-        print("MyTextFinderClient().firstResponderWhenDeactivated()")
+    @objc var firstResponderWhenDeactivated: Any? {
+        let responder = self.documentContainerView
+        print("MyTextFinderClient().firstResponderWhenDeactivated ->", responder)
+        return responder
     }
 
     /* I have no idea about what is the specific selector required by text finder client, so I am guessing. */
@@ -274,25 +276,39 @@ class MyTextFinderClient: NSTextFinderClient {
 
     /// Jim's API
     /// Get text for searching.
-    open var dataSource = { () -> String in
-        return ""
+    open var dataSource = { () -> (String, [Int]) in
+        return ("", [0, 0])
     }
-    open func updateClientString() {
-        self.clientString = dataSource()
+    open func updateClientData() {
+        let data = dataSource()
+        assert(data.1.count > 1, "Indexes must contain at least 2 elements!\n")
+        self.clientString = data.0
+        self.charIndexes = data.1
     }
 
+    private var charIndexes = [Int]()
     private var clientString = ""
 
     func string(at characterIndex: Int, effectiveRange outRange: NSRangePointer, endsWithSearchBoundary outFlag: UnsafeMutablePointer<ObjCBool>) -> String {
         print("MyTextFinderClient().stringAtIndex:effectiveRange:endsWithSearchBoundary:", terminator: " <- ")
         print(characterIndex, outRange.pointee, outFlag.pointee)
-        var mutableFlag = ObjCBool(booleanLiteral: false)
+        var mutableFlag = ObjCBool(booleanLiteral: true)
         outFlag.assign(from: &mutableFlag, count: 1)
         var mutableRange = NSRange(location: 0, length: self.clientString.count)
+
+        var subString = self.clientString
+        for iii in 1..<charIndexes.count {
+            let nextIndex = charIndexes[iii-1]
+            let index = charIndexes[iii]
+            if nextIndex != characterIndex || nextIndex == index { continue }
+            mutableRange = NSMakeRange(nextIndex, index-nextIndex)
+            let wholeString = NSString(string: subString)
+            subString = wholeString.substring(with: mutableRange)
+        }
         outRange.assign(from: &mutableRange, count: 1)
         print(outFlag.pointee, outRange.pointee)
 
-        return self.clientString
+        return subString
     }
 
     func stringLength() -> Int {
@@ -417,7 +433,7 @@ class MyTextFinderClient: NSTextFinderClient {
             "`drawCharactersInRange:forContentView:",
             "scrollTrackingView",
             /** A: **/
-            "firstResponderWhenDeactivated",
+            "`firstResponderWhenDeactivated",
             /** B: **/
             "findMatchesForString:relativeToMatch:findOptions:maxResults:resultCollector:",
             "`documentContainerView",
