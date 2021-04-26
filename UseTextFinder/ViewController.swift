@@ -49,6 +49,7 @@ class ViewController: NSViewController, NSTextViewDelegate {
 }
 
 
+// MARK: - My Text View
 class MyTextView: NSTextView {
     
     let textFinder = MyTextFinder()
@@ -74,6 +75,8 @@ class MyTextView: NSTextView {
             textFinder.isIncrementalSearchingEnabled = true
             textFinderClient.documentContainerView = self
             textFinderClient.dataSource = { return (self.string, [0, self.string.count]) }
+            textFinderClient.rectsOfFindIndicator = { (for: NSRange) -> [NSValue]? in return nil}
+
             textFinderClient.updateClientData()
 
             textFinder.findBarContainer = self.enclosingScrollView!
@@ -81,6 +84,7 @@ class MyTextView: NSTextView {
             
             textFinder.performAction(.showFindInterface)
         default:
+            _ = "default"
             print("MyTextView.performFindPanelAction()")
         }
     }
@@ -107,6 +111,7 @@ class MyTextView: NSTextView {
 }
 
 
+// MARK: - My Text Finder
 class MyTextFinder: NSTextFinder {
 
     
@@ -124,6 +129,7 @@ class MyTextFinder: NSTextFinder {
 }
 
 
+// MARK: - My Text Finder Client
 /// Refer:
 /// https://blog.timschroeder.net/2012/01/12/nstextfinder-magic/
 /// https://github.com/couchbaselabs/LogLady.git
@@ -132,18 +138,16 @@ class MyTextFinderClient: NSTextFinderClient {
 
     
 
-    private var textView: NSTextView {
-        guard let docView = self.documentContainerView as? NSTextView
-            else { return NSTextView() }
-        return docView
+    private var textView: NSTextView? {
+        return self.documentContainerView as? NSTextView
     }
-    
+
     /// After: selectFindMatch:completionHandler:
     /// Refer: https://github.com/VirgilSecurity/virgil-mail/blob/master/apple-mail/VirgilSecurityMail/src/MailHeaders/Mavericks_10.9.3/MailUI/ConversationViewFindController.h
     @objc func scrollFindMatchToVisible(_ findMatch: Any) {
         print("MyTextFinderClient().scrollFindMatchToVisible:", findMatch)
     }
-    
+
     /// After: documentContainerView
     /// Refer: https://opensource.apple.com/source/WebCore/WebCore-7606.2.104.0.1/PAL/pal/spi/mac/NSTextFinderSPI.h
     /// - (void)selectFindMatch:(id <NSTextFinderAsynchronousDocumentFindMatch>)findMatch completionHandler:(void (^)(void))completionHandler
@@ -166,11 +170,14 @@ class MyTextFinderClient: NSTextFinderClient {
     func rects(forCharacterRange range: NSRange) -> [NSValue]? {
         print("MyTextFinderClient().rects(): <-", range)
 
+        if let rects = self.rectsOfFindIndicator(range) { return rects }
+
         var values = [NSValue]()
 
         var rectCount = 0
-        let textView = self.textView
-        guard let layoutManager = textView.layoutManager,
+        
+        guard let textView = self.textView,
+            let layoutManager = textView.layoutManager,
             let textContainer = textView.textContainer,
             let textRects = layoutManager.rectArray(forCharacterRange: range, withinSelectedCharacterRange: range, in: textContainer, rectCount: &rectCount)
             else { return nil }
@@ -186,9 +193,15 @@ class MyTextFinderClient: NSTextFinderClient {
     /** After: rects(forCharacterRange:) **/
     func drawCharacters(in range: NSRange, forContentView view: NSView) {
         print("MyTextFinderClient().drawCharacters(): <-", range)
-        guard let textView = view as? NSTextView
-            else { return }
-        textView.layoutManager?.drawGlyphs(forGlyphRange: range, at: NSMakePoint(0, 0))
+        if let textView = view as? NSTextView {
+            textView.layoutManager?.drawGlyphs(forGlyphRange: range, at: NSMakePoint(0, 0))
+        } else if let outlineView = self.documentContainerView as? NSOutlineView {
+            guard let rects = rects(forCharacterRange: range) as? [NSRect]
+                else { return }
+            let rect = rects[0]
+            let image = NSImage(data: outlineView.dataWithPDF(inside: rect))
+            image?.draw(in: rect)
+        }
 
     }
 
@@ -215,8 +228,8 @@ class MyTextFinderClient: NSTextFinderClient {
 
     /* NSTextFinder.Action => hideFindInterface */
     @objc var firstResponderWhenDeactivated: Any? {
+        print("MyTextFinderClient().firstResponderWhenDeactivated")
         let responder = self.documentContainerView
-        print("MyTextFinderClient().firstResponderWhenDeactivated ->", responder)
         return responder
     }
 
@@ -269,9 +282,11 @@ class MyTextFinderClient: NSTextFinderClient {
     }
 
     /// Jim's API
-    /// After got a searched result.
-    open var findTheString = { (at: NSRange) -> () in
-        
+    /// An array containing the located text in the content view’s coordinate system.
+    ///
+    /// - returns: An array containing the rectangles containing the located text in the content view object’s coordinate system and return that array. The rectangles are return wrapped as NSValue objects.
+    open var rectsOfFindIndicator = { (fof: NSRange) -> [NSValue]? in
+        return nil
     }
 
     /// Jim's API
@@ -288,6 +303,8 @@ class MyTextFinderClient: NSTextFinderClient {
 
     private var charIndexes = [Int]()
     private var clientString = ""
+
+    private var recordedRange = NSRange(location: 0, length: 0)
 
     func string(at characterIndex: Int, effectiveRange outRange: NSRangePointer, endsWithSearchBoundary outFlag: UnsafeMutablePointer<ObjCBool>) -> String {
         print("MyTextFinderClient().stringAtIndex:effectiveRange:endsWithSearchBoundary:", terminator: " <- ")
@@ -322,7 +339,13 @@ class MyTextFinderClient: NSTextFinderClient {
     var selectedRanges: [NSValue] {
         set {
             print("MyTextFinderClient().setSelectedRanges:<-", newValue)
-            self.textView.selectedRanges = newValue
+            if let textView = self.textView {
+                textView.selectedRanges = newValue
+            } else {
+                guard let ranges = newValue as? [NSRange]
+                    else { return }
+                self.recordedRange = ranges[0]
+            }
         }
         get {
             print("MyTextFinderClient().getSelectedRanges")
@@ -344,15 +367,26 @@ class MyTextFinderClient: NSTextFinderClient {
 
 
     var firstSelectedRange: NSRange {
-        let range = textView.selectedRange()
+        var range = recordedRange
+        if let textView = self.textView {
+            range = textView.selectedRange()
+        }
         print("MyTextFinderClient().firstSelectedRange ->", range)
         return range
     }
 
     func scrollRangeToVisible(_ range: NSRange) {
         print("MyTextFinderClient().scrollRangeToVisible():<-", range)
-        self.textView.scrollRangeToVisible(range)
-        self.textView.selectedRanges = [NSValue(range: range)]
+        if let textView = self.textView {
+            textView.scrollRangeToVisible(range)
+            textView.selectedRanges = [NSValue(range: range)]
+        } else {
+            guard let rects = rects(forCharacterRange: range) as? [NSRect]
+                else { return }
+            for iii in rects {
+                self.documentContainerView!.scrollToVisible(iii)
+            }
+        }
     }
 
     init() {
@@ -438,7 +472,10 @@ class MyTextFinderClient: NSTextFinderClient {
             "findMatchesForString:relativeToMatch:findOptions:maxResults:resultCollector:",
             "`documentContainerView",
             "`selectFindMatch:completionHandler:",
-            "`scrollFindMatchToVisible:"
+            "`scrollFindMatchToVisible:",
+            /** Replace **/
+            "`replaceCharactersInRange:withString:",
+            "`shouldReplaceCharactersInRanges:withStrings:"
         ]
 
         let hasSelector = !specialDescriptions.contains(aSelector.description)
