@@ -58,7 +58,7 @@ class MyTextView: NSTextView {
 
     override func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
         //print("MyTextView.validateMenuItem():", menuItem, menuItem.action)
-        if menuItem.title == "Find…" {
+        if menuItem.title.contains("Find") {
             return true
         }
         return super.validateMenuItem(menuItem)
@@ -67,22 +67,29 @@ class MyTextView: NSTextView {
     override func performFindPanelAction(_ sender: Any?) {
         guard let menuItem = sender as? NSMenuItem else { return }
         print(menuItem.title)
+
+        self.enclosingScrollView!.isFindBarVisible = true
+        textFinder.incrementalSearchingShouldDimContentView = true
+        textFinder.isIncrementalSearchingEnabled = true
+        textFinderClient.documentContainerView = self
+        textFinderClient.dataSource = { return (self.string, [0, self.string.count]) }
+        textFinderClient.rectsOfFindIndicator = { (for: NSRange) -> [NSValue]? in return nil}
+        textFinderClient.updateClientData()
+        textFinder.findBarContainer = self.enclosingScrollView!
+        textFinder.client = textFinderClient
+        textFinderClient.textFinder = textFinder
+
         switch menuItem.title {
         case "Find…":
-            self.enclosingScrollView!.isFindBarVisible = true
-            
-            textFinder.incrementalSearchingShouldDimContentView = true
-            textFinder.isIncrementalSearchingEnabled = true
-            textFinderClient.documentContainerView = self
-            textFinderClient.dataSource = { return (self.string, [0, self.string.count]) }
-            textFinderClient.rectsOfFindIndicator = { (for: NSRange) -> [NSValue]? in return nil}
-
-            textFinderClient.updateClientData()
-
-            textFinder.findBarContainer = self.enclosingScrollView!
-            textFinder.client = textFinderClient
-            
             textFinder.performAction(.showFindInterface)
+        case "Find and Replace…":
+            textFinder.performAction(.showReplaceInterface)
+        case "Find Next":
+            textFinder.performAction(.nextMatch)
+        case "Find Previous":
+            textFinder.performAction(.previousMatch)
+        case "Use Selection for Find":
+            _ = "Use Selection for Find"
         default:
             _ = "default"
             print("MyTextView.performFindPanelAction()")
@@ -136,7 +143,7 @@ class MyTextFinder: NSTextFinder {
 ///
 class MyTextFinderClient: NSTextFinderClient {
 
-    
+    open var textFinder: NSTextFinder?
 
     private var textView: NSTextView? {
         return self.documentContainerView as? NSTextView
@@ -257,7 +264,32 @@ class MyTextFinderClient: NSTextFinderClient {
         print("MyTextFinderClient().isEditable ->", true)
         return true
     }
-    
+
+    func didReplaceCharacters() {
+        self.updateClientData()
+    }
+
+    /** Bug: Find indicator can not automatically step forward after replace to a `Same-Leading` string. **/
+    func replaceCharacters(in range: NSRange, with string: String) {
+        print("MyTextFinderClient().replaceCharactersInRange:withString: <-", range, string)
+        if let textView = documentContainerView as? NSTextView {
+            textView.replaceCharacters(in: range, with: string)
+            let newRange = NSMakeRange(range.location, string.count)
+            textView.selectedRanges = [NSValue(range: newRange)]
+        }
+    }
+
+    func shouldReplaceCharacters(inRanges ranges: [NSValue], with strings: [String]) -> Bool {
+        print("MyTextFinderClient().shouldReplaceCharactersInRanges:withStrings: <-", ranges, strings)
+        if let ranges = ranges as? [NSRange],
+            ranges.contains(where: {$0.length == 0}) {
+            /** Xcode takes measures to disable the `Replace` button in tihs case. **/
+            self.textFinder?.performAction(.nextMatch)
+            return false
+        }
+        return true
+    }
+
     /// PreferredTextFinderStyle
     ///
     /// Return 1 to additionally display`Replace` field.
@@ -475,7 +507,8 @@ class MyTextFinderClient: NSTextFinderClient {
             "`scrollFindMatchToVisible:",
             /** Replace **/
             "`replaceCharactersInRange:withString:",
-            "`shouldReplaceCharactersInRanges:withStrings:"
+            "`shouldReplaceCharactersInRanges:withStrings:",
+            "`didReplaceCharacters"
         ]
 
         let hasSelector = !specialDescriptions.contains(aSelector.description)
