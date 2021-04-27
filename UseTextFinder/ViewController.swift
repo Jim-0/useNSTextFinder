@@ -72,9 +72,10 @@ class MyTextView: NSTextView {
         textFinder.incrementalSearchingShouldDimContentView = true
         textFinder.isIncrementalSearchingEnabled = true
         textFinderClient.documentContainerView = self
-        textFinderClient.dataSource = { return (self.string, [0, self.string.count]) }
+        textFinderClient.clientDataSource = { return (self.string, [0, self.string.count]) }
+        _ = textFinderClient.reloadClientData()
+        /** Client data can be used in the `rectsOfFindIndicator` closure. **/
         textFinderClient.rectsOfFindIndicator = { (for: NSRange) -> [NSValue]? in return nil}
-        textFinderClient.updateClientData()
         textFinder.findBarContainer = self.enclosingScrollView!
         textFinder.client = textFinderClient
         textFinderClient.textFinder = textFinder
@@ -99,7 +100,7 @@ class MyTextView: NSTextView {
     override func becomeFirstResponder() -> Bool {
         print("MyTextView().becomeFirstResponder()")
         textFinder.noteClientStringWillChange()
-        textFinderClient.updateClientData()
+        _ = textFinderClient.reloadClientData()
         return super.becomeFirstResponder()
     }
     
@@ -112,7 +113,7 @@ class MyTextView: NSTextView {
         print("MyTextView().didChangeText()")
         super.didChangeText()
         self.textFinder.noteClientStringWillChange()
-        textFinderClient.updateClientData()
+        _ = textFinderClient.reloadClientData()
     }
 
 }
@@ -266,7 +267,7 @@ class MyTextFinderClient: NSTextFinderClient {
     }
 
     func didReplaceCharacters() {
-        self.updateClientData()
+        _ = self.reloadClientData()
     }
 
     /** Bug: Find indicator can not automatically step forward after replace to a `Same-Leading` string. **/
@@ -323,14 +324,15 @@ class MyTextFinderClient: NSTextFinderClient {
 
     /// Jim's API
     /// Get text for searching.
-    open var dataSource = { () -> (String, [Int]) in
+    open var clientDataSource = { () -> (String, [Int]) in
         return ("", [0, 0])
     }
-    open func updateClientData() {
-        let data = dataSource()
+    open func reloadClientData() -> Any {
+        let data = clientDataSource()
         assert(data.1.count > 1, "Indexes must contain at least 2 elements!\n")
         self.clientString = data.0
         self.charIndexes = data.1
+        return data
     }
 
     private var charIndexes = [Int]()
