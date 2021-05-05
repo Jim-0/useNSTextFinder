@@ -51,7 +51,7 @@ class ViewController: NSViewController, NSTextViewDelegate {
 
 // MARK: - My Text View
 class MyTextView: NSTextView {
-    
+
     let textFinder = MyTextFinder()
 
     let textFinderClient = MyTextFinderClient()
@@ -73,6 +73,7 @@ class MyTextView: NSTextView {
         textFinder.isIncrementalSearchingEnabled = true
         textFinderClient.documentContainerView = self
         textFinderClient.clientDataSource = { return (self.string, [0, self.string.count]) }
+
         _ = textFinderClient.reloadClientData()
         /** Client data can be used in the `rectsOfFindIndicator` closure. **/
         textFinderClient.rectsOfFindIndicator = { (for: NSRange) -> [NSValue]? in return nil}
@@ -103,7 +104,7 @@ class MyTextView: NSTextView {
         _ = textFinderClient.reloadClientData()
         return super.becomeFirstResponder()
     }
-    
+
     override func resignFirstResponder() -> Bool {
         print("MyTextView().resignFirstResponder()")
         return super.resignFirstResponder()
@@ -122,7 +123,7 @@ class MyTextView: NSTextView {
 // MARK: - My Text Finder
 class MyTextFinder: NSTextFinder {
 
-    
+
 
     override func performAction(_ op: NSTextFinder.Action) {
         print("MyTextFinder().performAction()")
@@ -145,10 +146,6 @@ class MyTextFinder: NSTextFinder {
 class MyTextFinderClient: NSTextFinderClient {
 
     open var textFinder: NSTextFinder?
-
-    private var textView: NSTextView? {
-        return self.documentContainerView as? NSTextView
-    }
 
     /// After: selectFindMatch:completionHandler:
     /// Refer: https://github.com/VirgilSecurity/virgil-mail/blob/master/apple-mail/VirgilSecurityMail/src/MailHeaders/Mavericks_10.9.3/MailUI/ConversationViewFindController.h
@@ -183,8 +180,8 @@ class MyTextFinderClient: NSTextFinderClient {
         var values = [NSValue]()
 
         var rectCount = 0
-        
-        guard let textView = self.textView,
+
+        guard let textView = self.documentContainerView as? NSTextView,
             let layoutManager = textView.layoutManager,
             let textContainer = textView.textContainer,
             let textRects = layoutManager.rectArray(forCharacterRange: range, withinSelectedCharacterRange: range, in: textContainer, rectCount: &rectCount)
@@ -215,14 +212,9 @@ class MyTextFinderClient: NSTextFinderClient {
 
     /* isSelectable == false */
     func contentView(at index: Int, effectiveCharacterRange outRange: NSRangePointer) -> NSView {
-        print("MyTextFinderClient().contentView():", index, outRange.pointee, "-> \(scrollTrackingView!.className)")
-        var values = [NSRange]()
-        for iii in 1..<self.clientString.count {
-            let value = NSMakeRange(iii-1, 1)
-            values.append(value)
-        }
+        print("MyTextFinderClient().contentView():", index, "-> \(documentContainerView!.className)")
 
-        var mutableRange = NSRange(location: index, length: self.clientString.count)
+        var mutableRange = NSRange(location: 0, length: self.clientString.count)
         /** execute outRange.assign(from:count:) to invoke self.rects(forCharacterRange:) **/
         outRange.assign(from: &mutableRange, count: 1)
         /** Return a view to drawCharacters(in:forContentView:) contentView: **/
@@ -250,13 +242,13 @@ class MyTextFinderClient: NSTextFinderClient {
     @objc func findMatchesForString(_ targetString: String, relativeToMatch: NSRangePointer, findOptions: Int, maxResults: UInt, resultCollector: (_ matches: NSArray?, _ didWrap: Bool) -> Void) {
         print("findMatchesForString:relativeToMatch:findOptions:maxResults:resultCollector:", terminator: " <- ")
         print(targetString, relativeToMatch, findOptions, maxResults)
-        
+
         var values = [NSValue]()
         for iii in 1..<self.clientString.count {
             let value = NSValue(range: NSMakeRange(iii-1, 1))
             values.append(value)
         }
-        
+
         //resultCollector([NSValue(range: NSRange(location: 0, length: 1))], false);
         //resultCollector(nil, true);
     }
@@ -303,12 +295,12 @@ class MyTextFinderClient: NSTextFinderClient {
         print("MyTextFinderClient().findBarDrawsBackground ->", true)
         return true
     }
-    
+
     @objc var findBarUsesRegularControls: Bool {
         print("MyTextFinderClient().findBarUsesRegularControls ->", false)
         return false
     }
-    
+
     var allowsMultipleSelection: Bool {
         print("MyTextFinderClient().allowsMultipleSelection ->", true)
         return true
@@ -341,39 +333,38 @@ class MyTextFinderClient: NSTextFinderClient {
     private var recordedRange = NSRange(location: 0, length: 0)
 
     func string(at characterIndex: Int, effectiveRange outRange: NSRangePointer, endsWithSearchBoundary outFlag: UnsafeMutablePointer<ObjCBool>) -> String {
-        print("MyTextFinderClient().stringAtIndex:effectiveRange:endsWithSearchBoundary:", terminator: " <- ")
-        print(characterIndex, outRange.pointee, outFlag.pointee)
+        print("MyTextFinderClient().stringAtIndex:effectiveRange:endsWithSearchBoundary: <-", characterIndex)
         var mutableFlag = ObjCBool(booleanLiteral: true)
         outFlag.assign(from: &mutableFlag, count: 1)
         var mutableRange = NSRange(location: 0, length: self.clientString.count)
 
         var subString = self.clientString
-        for iii in 1..<charIndexes.count {
-            let nextIndex = charIndexes[iii-1]
-            let index = charIndexes[iii]
-            if nextIndex != characterIndex || nextIndex == index { continue }
-            mutableRange = NSMakeRange(nextIndex, index-nextIndex)
+        for iii in 0..<(charIndexes.count-1) {
+            let lowerBound = charIndexes[iii]
+            let upperBound = charIndexes[iii+1]
+            if lowerBound != characterIndex || lowerBound == upperBound { continue }
+            mutableRange = NSMakeRange(lowerBound, upperBound-lowerBound)
             let wholeString = NSString(string: subString)
             subString = wholeString.substring(with: mutableRange)
+            break
         }
         outRange.assign(from: &mutableRange, count: 1)
-        print(outFlag.pointee, outRange.pointee)
+        print("MyTextFinderClient().stringAtIndex:effectiveRange:endsWithSearchBoundary: ->", outRange.pointee)
 
         return subString
     }
 
     func stringLength() -> Int {
-        NSLog("------------------------------------")
         let lenght = self.clientString.count
-        print("MyTextFinderClient().stringLength ->", lenght)
+        print("MyTextFinderClient().stringLength ----------------------------->", lenght)
         return lenght
     }
-    
+
     /// When isSelectable == true, implement recognized selector -[setSelectedRanges:]
     var selectedRanges: [NSValue] {
         set {
             print("MyTextFinderClient().setSelectedRanges:<-", newValue)
-            if let textView = self.textView {
+            if let textView = self.documentContainerView as? NSTextView {
                 textView.selectedRanges = newValue
             } else {
                 guard let ranges = newValue as? [NSRange]
@@ -402,7 +393,7 @@ class MyTextFinderClient: NSTextFinderClient {
 
     var firstSelectedRange: NSRange {
         var range = recordedRange
-        if let textView = self.textView {
+        if let textView = self.documentContainerView as? NSTextView {
             range = textView.selectedRange()
         }
         print("MyTextFinderClient().firstSelectedRange ->", range)
@@ -411,14 +402,18 @@ class MyTextFinderClient: NSTextFinderClient {
 
     func scrollRangeToVisible(_ range: NSRange) {
         print("MyTextFinderClient().scrollRangeToVisible():<-", range)
-        if let textView = self.textView {
+        if let textView = self.documentContainerView as? NSTextView {
             textView.scrollRangeToVisible(range)
             textView.selectedRanges = [NSValue(range: range)]
         } else {
-            guard let rects = rects(forCharacterRange: range) as? [NSRect]
+            guard let rects = rects(forCharacterRange: range) as? [NSRect],
+                let documentView = self.documentContainerView
                 else { return }
             for iii in rects {
-                self.documentContainerView!.scrollToVisible(iii)
+                if !documentView.enclosingScrollView!.documentVisibleRect.contains(iii) {
+                    documentView.scroll(NSPoint(x: iii.minX-documentView.visibleRect.width/2, y: iii.minY-documentView.visibleRect.height/2))
+                }
+                documentView.scrollToVisible(iii)
             }
         }
     }
@@ -438,24 +433,24 @@ class MyTextFinderClient: NSTextFinderClient {
     var hash: Int
 
     var superclass: AnyClass?
-    
+
     func `self`() -> Self {
         print("MyTextFinderClient().`self`()")
         return self
     }
-    
+
     func perform(_ aSelector: Selector!) -> Unmanaged<AnyObject>! {
         print("MyTextFinderClient().perform()")
         let obj = NSObject()
         return Unmanaged.passRetained(obj)
     }
-    
+
     func perform(_ aSelector: Selector!, with object: Any!) -> Unmanaged<AnyObject>! {
         print("MyTextFinderClient().perform()")
         let obj = NSObject()
         return Unmanaged.passRetained(obj)
     }
-    
+
     func perform(_ aSelector: Selector!, with object1: Any!, with object2: Any!) -> Unmanaged<AnyObject>! {
         print("MyTextFinderClient().perform()")
         let obj = NSObject()
@@ -466,17 +461,17 @@ class MyTextFinderClient: NSTextFinderClient {
         print("MyTextFinderClient().isProxy()")
         return true
     }
-    
+
     func isKind(of aClass: AnyClass) -> Bool {
         print("MyTextFinderClient().isKind()")
         return true
     }
-    
+
     func isMember(of aClass: AnyClass) -> Bool {
         print("MyTextFinderClient().isMember()")
         return true
     }
-    
+
     func conforms(to aProtocol: Protocol) -> Bool {
         print("MyTextFinderClient().conforms()")
         return true
@@ -517,7 +512,7 @@ class MyTextFinderClient: NSTextFinderClient {
         print("MyTextFinderClient().responds():", aSelector.description, hasSelector)
         return hasSelector
     }
-    
+
     var description: String
 
 }
