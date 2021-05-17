@@ -13,6 +13,8 @@
 		384030042633B41A00C3C4EA /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 384030022633B41A00C3C4EA /* Main.storyboard */; };
 		3840300D2633F55300C3C4EA /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3840300C2633F55300C3C4EA /* Document.swift */; };
 		3840300F2633F57C00C3C4EA /* Content.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3840300E2633F57C00C3C4EA /* Content.swift */; };
+		38DBA78E26524F3B00227DC0 /* MyTextView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38DBA78D26524F3B00227DC0 /* MyTextView.swift */; };
+		38DBA79026524F7A00227DC0 /* MyTextView+TextFinderClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38DBA78F26524F7A00227DC0 /* MyTextView+TextFinderClient.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -25,6 +27,8 @@
 		384030062633B41A00C3C4EA /* UseTextFinder.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = UseTextFinder.entitlements; sourceTree = "<group>"; };
 		3840300C2633F55300C3C4EA /* Document.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
 		3840300E2633F57C00C3C4EA /* Content.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Content.swift; sourceTree = "<group>"; };
+		38DBA78D26524F3B00227DC0 /* MyTextView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyTextView.swift; sourceTree = "<group>"; };
+		38DBA78F26524F7A00227DC0 /* MyTextView+TextFinderClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MyTextView+TextFinderClient.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +63,8 @@
 			children = (
 				38402FFC2633B41900C3C4EA /* AppDelegate.swift */,
 				38402FFE2633B41900C3C4EA /* ViewController.swift */,
+				38DBA78D26524F3B00227DC0 /* MyTextView.swift */,
+				38DBA78F26524F7A00227DC0 /* MyTextView+TextFinderClient.swift */,
 				3840300C2633F55300C3C4EA /* Document.swift */,
 				3840300E2633F57C00C3C4EA /* Content.swift */,
 				384030002633B41A00C3C4EA /* Assets.xcassets */,
@@ -143,6 +149,8 @@
 				38402FFD2633B41900C3C4EA /* AppDelegate.swift in Sources */,
 				3840300D2633F55300C3C4EA /* Document.swift in Sources */,
 				3840300F2633F57C00C3C4EA /* Content.swift in Sources */,
+				38DBA78E26524F3B00227DC0 /* MyTextView.swift in Sources */,
+				38DBA79026524F7A00227DC0 /* MyTextView+TextFinderClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
