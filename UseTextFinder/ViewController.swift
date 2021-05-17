@@ -52,7 +52,7 @@ class ViewController: NSViewController, NSTextViewDelegate {
 // MARK: - My Text View
 class MyTextView: NSTextView {
 
-    let textFinder = MyTextFinder()
+    let textFinder = NSTextFinder()
 
     let textFinderClient = MyTextFinderClient()
 
@@ -72,11 +72,9 @@ class MyTextView: NSTextView {
         textFinder.incrementalSearchingShouldDimContentView = true
         textFinder.isIncrementalSearchingEnabled = true
         textFinderClient.documentContainerView = self
-        textFinderClient.clientDataSource = { return (self.string, [0, self.string.count]) }
+        textFinderClient.__clientDataSource = { return (self.string, [0, self.string.count]) }
 
         _ = textFinderClient.reloadClientData()
-        /** Client data can be used in the `rectsOfFindIndicator` closure. **/
-        textFinderClient.rectsOfFindIndicator = { (for: NSRange) -> [NSValue]? in return nil}
         textFinder.findBarContainer = self.enclosingScrollView!
         textFinder.client = textFinderClient
         textFinderClient.textFinder = textFinder
@@ -119,25 +117,6 @@ class MyTextView: NSTextView {
 
 }
 
-
-// MARK: - My Text Finder
-class MyTextFinder: NSTextFinder {
-
-
-
-    override func performAction(_ op: NSTextFinder.Action) {
-        print("MyTextFinder().performAction()")
-        super.performAction(op)
-    }
-
-    override func validateAction(_ op: NSTextFinder.Action) -> Bool {
-        print("MyTextFinder().validateAction()")
-        return super.validateAction(op)
-    }
-
-}
-
-
 // MARK: - My Text Finder Client
 /// Refer:
 /// https://blog.timschroeder.net/2012/01/12/nstextfinder-magic/
@@ -175,7 +154,9 @@ class MyTextFinderClient: NSTextFinderClient {
     func rects(forCharacterRange range: NSRange) -> [NSValue]? {
         print("MyTextFinderClient().rects(): <-", range)
 
-        if let rects = self.rectsOfFindIndicator(range) { return rects }
+        if let __rectsOfFindIndicator = self.__rectsOfFindIndicator {
+            return __rectsOfFindIndicator(range)
+        }
 
         var values = [NSValue]()
 
@@ -200,14 +181,44 @@ class MyTextFinderClient: NSTextFinderClient {
         print("MyTextFinderClient().drawCharacters(): <-", range)
         if let textView = view as? NSTextView {
             textView.layoutManager?.drawGlyphs(forGlyphRange: range, at: NSMakePoint(0, 0))
-        } else if let outlineView = self.documentContainerView as? NSOutlineView {
+        } else if let outlineView = self.documentContainerView as? NSTableView {
             guard let rects = rects(forCharacterRange: range) as? [NSRect]
                 else { return }
-            let rect = rects[0]
-            let image = NSImage(data: outlineView.dataWithPDF(inside: rect))
-            image?.draw(in: rect)
-        }
+            for rect in rects {
+                /** Draw for the rects. **/
+                let image = NSImage(data: outlineView.dataWithPDF(inside: rect))
+                image?.draw(in: rect)
 
+                /** Draw in rects. **/
+                let targetRow = outlineView.row(at: NSPoint(x: rect.midX, y: rect.midY))
+                let targetColumn = outlineView.column(at: NSPoint(x: rect.midX, y: rect.midY))
+                guard targetRow > -1, targetColumn > -1,
+                    let rowView = outlineView.rowView(atRow: targetRow, makeIfNecessary: true),
+                    let cellView = rowView.view(atColumn: targetColumn) as? NSTableCellView,
+                    let textField = cellView.textField
+                    else { return }
+
+                if cellView.isHidden { return }
+
+                let indexes = self.charIndexes
+                for iii in 0..<(indexes.count-1) {
+                    let lowerBound = indexes[iii]
+                    let upperBound = indexes[iii+1]
+                    let targetIndex = range.location
+                    if targetIndex >= upperBound || targetIndex < lowerBound || lowerBound == upperBound {
+                        continue
+                    }
+                    let subStringRange = NSMakeRange(targetIndex-lowerBound, range.length)
+                    let oldAS = textField.attributedStringValue
+                    let mutableAS = NSMutableAttributedString(attributedString: oldAS)
+                    mutableAS.addAttributes([.foregroundColor: NSColor.clear], range: NSMakeRange(0, mutableAS.length))
+                    mutableAS.addAttributes([.backgroundColor: NSColor.orange, .foregroundColor: NSColor.black], range: subStringRange)
+                    mutableAS.draw(in: rect.insetBy(dx: 3.5, dy: 1))
+                    break
+                }
+            }
+
+        }
     }
 
     /* isSelectable == false */
@@ -272,8 +283,14 @@ class MyTextFinderClient: NSTextFinderClient {
         }
     }
 
+    /// External interface.
+    open var __shouldReplaceCharacters: ( (_ inRanges: [NSValue], _ with: [String]) -> Bool )?
+
     func shouldReplaceCharacters(inRanges ranges: [NSValue], with strings: [String]) -> Bool {
         print("MyTextFinderClient().shouldReplaceCharactersInRanges:withStrings: <-", ranges, strings)
+        if let __shouldReplace = self.__shouldReplaceCharacters {
+            return __shouldReplace(ranges, strings)
+        }
         if let ranges = ranges as? [NSRange],
             ranges.contains(where: {$0.length == 0}) {
             /** Xcode takes measures to disable the `Replace` button in tihs case. **/
@@ -306,21 +323,20 @@ class MyTextFinderClient: NSTextFinderClient {
         return true
     }
 
-    /// Jim's API
+    /// External interface.
     /// An array containing the located text in the content view’s coordinate system.
     ///
     /// - returns: An array containing the rectangles containing the located text in the content view object’s coordinate system and return that array. The rectangles are return wrapped as NSValue objects.
-    open var rectsOfFindIndicator = { (fof: NSRange) -> [NSValue]? in
-        return nil
-    }
+    open var __rectsOfFindIndicator: ( (_ for: NSRange) -> [NSValue]? )?
 
-    /// Jim's API
+    /// External interface.
     /// Get text for searching.
-    open var clientDataSource = { () -> (String, [Int]) in
+    open var __clientDataSource = { () -> (String, [Int]) in
         return ("", [0, 0])
     }
+    /// Returned client data can be reused by outer instance.
     open func reloadClientData() -> Any {
-        let data = clientDataSource()
+        let data = self.__clientDataSource()
         assert(data.1.count > 1, "Indexes must contain at least 2 elements!\n")
         self.clientString = data.0
         self.charIndexes = data.1
@@ -390,10 +406,13 @@ class MyTextFinderClient: NSTextFinderClient {
         return values
     }
 
-
+    /// External interface.
+    open var __firstSelectedRange: ( () -> NSRange )?
     var firstSelectedRange: NSRange {
-        var range = recordedRange
-        if let textView = self.documentContainerView as? NSTextView {
+        var range = self.recordedRange
+        if let __firstSelectedRange = self.__firstSelectedRange {
+            range = __firstSelectedRange()
+        } else if let textView = self.documentContainerView as? NSTextView {
             range = textView.selectedRange()
         }
         print("MyTextFinderClient().firstSelectedRange ->", range)
