@@ -67,24 +67,30 @@ class MyTextFinderClient: NSTextFinderClient {
 
     }
 
+    /// External interface.
+    open var __drawCharacters: ( (_ range: NSRange, _ forContentView: NSView) -> () )?
     /** After: rects(forCharacterRange:) **/
     func drawCharacters(in range: NSRange, forContentView view: NSView) {
         print("MyTextFinderClient().drawCharacters(): <-", range)
+        if let __drawCharacters = self.__drawCharacters {
+            __drawCharacters(range, view)
+            return
+        }
         if let textView = view as? NSTextView {
             textView.layoutManager?.drawGlyphs(forGlyphRange: range, at: NSMakePoint(0, 0))
-        } else if let outlineView = self.documentContainerView as? NSTableView {
+        } else if let tableView = self.documentContainerView as? NSTableView {
             guard let rects = rects(forCharacterRange: range) as? [NSRect]
                 else { return }
             for rect in rects {
                 /** Draw for the rects. **/
-                let image = NSImage(data: outlineView.dataWithPDF(inside: rect))
+                let image = NSImage(data: tableView.dataWithPDF(inside: rect))
                 image?.draw(in: rect)
 
                 /** Draw in rects. **/
-                let targetRow = outlineView.row(at: NSPoint(x: rect.midX, y: rect.midY))
-                let targetColumn = outlineView.column(at: NSPoint(x: rect.midX, y: rect.midY))
+                let targetRow = tableView.row(at: NSPoint(x: rect.midX, y: rect.midY))
+                let targetColumn = tableView.column(at: NSPoint(x: rect.midX, y: rect.midY))
                 guard targetRow > -1, targetColumn > -1,
-                    let rowView = outlineView.rowView(atRow: targetRow, makeIfNecessary: true),
+                    let rowView = tableView.rowView(atRow: targetRow, makeIfNecessary: true),
                     let cellView = rowView.view(atColumn: targetColumn) as? NSTableCellView,
                     let textField = cellView.textField
                     else { return }
@@ -226,7 +232,7 @@ class MyTextFinderClient: NSTextFinderClient {
         return ("", [0, 0])
     }
     /// Returned client data can be reused by outer instance.
-    open func reloadClientData() -> Any {
+    open func reloadClientData() -> (String, [Int]) {
         let data = self.__clientDataSource()
         assert(data.1.count > 1, "Indexes must contain at least 2 elements!\n")
         self.clientString = data.0
@@ -310,8 +316,14 @@ class MyTextFinderClient: NSTextFinderClient {
         return range
     }
 
+    /// External interface.
+    open var __scrollRangeToVisible: ( (_ range: NSRange) -> Void )?
     func scrollRangeToVisible(_ range: NSRange) {
         print("MyTextFinderClient().scrollRangeToVisible():<-", range)
+        if let __scrollRangeToVisible = self.__scrollRangeToVisible {
+            __scrollRangeToVisible(range)
+            return
+        }
         if let textView = self.documentContainerView as? NSTextView {
             textView.scrollRangeToVisible(range)
             textView.selectedRanges = [NSValue(range: range)]
