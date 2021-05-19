@@ -331,11 +331,16 @@ class MyTextFinderClient: NSTextFinderClient {
             guard let rects = rects(forCharacterRange: range) as? [NSRect],
                 let documentView = self.documentContainerView
                 else { return }
-            for iii in rects {
-                if !documentView.enclosingScrollView!.documentVisibleRect.contains(iii) {
-                    documentView.scroll(NSPoint(x: iii.minX-documentView.visibleRect.width/2, y: iii.minY-documentView.visibleRect.height/2))
+            let documentVisibleRect = documentView.enclosingScrollView!.documentVisibleRect
+            let offsetY = documentVisibleRect.height - documentView.enclosingScrollView!.verticalScroller!.frame.height
+            let offsetX = documentVisibleRect.width - documentView.enclosingScrollView!.horizontalScroller!.frame.width
+            let offsetRect = documentVisibleRect.offsetBy(dx: offsetX, dy: offsetY)
+            let realDocumentVisibleRect = offsetRect.intersection(documentVisibleRect)
+            for rect in rects {
+                if !realDocumentVisibleRect.contains(rect) {
+                    documentView.scroll(NSPoint(x: rect.minX-documentVisibleRect.width/2, y: rect.minY-documentVisibleRect.height/2))
                 }
-                documentView.scrollToVisible(iii)
+                documentView.scrollToVisible(rect)
             }
         }
     }
