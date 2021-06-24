@@ -30,6 +30,11 @@ class ViewController: NSViewController, NSTextViewDelegate {
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view.
+        if let textView = (self.view as? NSScrollView)?.documentView as? NSTextView {
+            textView.maxSize = NSMakeSize(CGFloat.greatestFiniteMagnitude, CGFloat.greatestFiniteMagnitude)
+            textView.layoutManager?.allowsNonContiguousLayout = true
+            textView.textContainer?.containerSize = NSMakeSize(self.view.bounds.width, CGFloat.greatestFiniteMagnitude)
+        }
     }
 
     override func viewDidAppear() {
