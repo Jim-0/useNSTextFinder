@@ -30,7 +30,11 @@ class MyTextView: NSTextView {
         textFinder.incrementalSearchingShouldDimContentView = true
         textFinder.isIncrementalSearchingEnabled = true
         textFinderClient.documentContainerView = self
-        textFinderClient.__clientDataSource = { return (self.string, [0, NSString(string: self.string).length]) }
+        textFinderClient.__clientDataSource = { () -> (NSMutableString, NSMutableIndexSet) in
+            let clientString = NSMutableString(string: self.string)
+            let charIndexes = NSMutableIndexSet(indexSet: [clientString.length])
+            return (clientString, charIndexes)
+        }
 
         _ = textFinderClient.reloadClientData()
         textFinder.findBarContainer = self.enclosingScrollView!

@@ -95,28 +95,24 @@ class MyTextFinderClient: NSTextFinderClient {
                     let textField = cellView.textField
                     else { return }
 
-                if cellView.isHidden { return }
+                if cellView.isHidden { continue }
 
                 let indexes = self.charIndexes
                 let targetIndex = range.location
-                var lowerBound = 0
-                //var upperBound = 0
-                if var regionIndex = indexes.firstIndex(where: {
-                    let returnValue = (targetIndex < $0)&&(lowerBound != $0)
-                    if returnValue {
-                        //upperBound = $0
-                    } else {
-                        lowerBound = $0
-                    }
-                    return returnValue
-                }) {regionIndex = regionIndex - 1
-                    let subStringRange = NSMakeRange(targetIndex-lowerBound, range.length)
-                    let oldAS = textField.attributedStringValue
-                    let mutableAS = NSMutableAttributedString(attributedString: oldAS)
-                    mutableAS.addAttributes([.foregroundColor: NSColor.clear], range: NSMakeRange(0, mutableAS.length))
-                    mutableAS.addAttributes([.backgroundColor: NSColor.orange, .foregroundColor: NSColor.black], range: subStringRange)
-                    mutableAS.draw(in: rect.insetBy(dx: 3.5, dy: 1))
-                }
+
+                var lowerBound = indexes.indexLessThanOrEqual(to: targetIndex)
+                if lowerBound == INT64_MAX { lowerBound = 0 }
+                let upperBound = indexes.indexGreaterThanIndex(targetIndex)
+                if upperBound == INT64_MAX { continue }
+                let regionIndex = indexes.countOfIndexes(in: NSMakeRange(0, upperBound))
+                if regionIndex == INT64_MAX { continue }
+
+                let subStringRange = NSMakeRange(targetIndex-lowerBound, range.length)
+                let oldAS = textField.attributedStringValue
+                let mutableAS = NSMutableAttributedString(attributedString: oldAS)
+                mutableAS.addAttributes([.foregroundColor: NSColor.clear], range: NSMakeRange(0, mutableAS.length))
+                mutableAS.addAttributes([.backgroundColor: NSColor.orange, .foregroundColor: NSColor.black], range: subStringRange)
+                mutableAS.draw(in: rect.insetBy(dx: 3.5, dy: 1))
             }
 
         }
@@ -126,7 +122,7 @@ class MyTextFinderClient: NSTextFinderClient {
     func contentView(at index: Int, effectiveCharacterRange outRange: NSRangePointer) -> NSView {
         //print("MyTextFinderClient().contentView():", index, "-> \(documentContainerView!.className)")
 
-        var mutableRange = NSRange(location: 0, length: NSString(string: self.clientString).length)
+        var mutableRange = NSRange(location: 0, length: self.clientString.length)
         /** execute outRange.assign(from:count:) to invoke self.rects(forCharacterRange:) **/
         outRange.assign(from: &mutableRange, count: 1)
         /** Return a view to drawCharacters(in:forContentView:) contentView: **/
@@ -156,7 +152,7 @@ class MyTextFinderClient: NSTextFinderClient {
         print(targetString, relativeToMatch, findOptions, maxResults)
 
         var values = [NSValue]()
-        for iii in 1..<NSString(string: self.clientString).length {
+        for iii in 1..<self.clientString.length {
             let value = NSValue(range: NSMakeRange(iii-1, 1))
             values.append(value)
         }
@@ -232,20 +228,20 @@ class MyTextFinderClient: NSTextFinderClient {
 
     /// External interface.
     /// Get text for searching.
-    open var __clientDataSource = { () -> (String, [Int]) in
-        return ("", [0, 0])
+    open var __clientDataSource = { () -> (NSString, NSIndexSet) in
+        return (NSString(string: ""), NSIndexSet(indexSet: [0]))
     }
     /// Returned client data can be reused by outer instance.
-    open func reloadClientData() -> (String, [Int]) {
+    open func reloadClientData() -> (NSString, NSIndexSet) {
         let data = self.__clientDataSource()
-        assert(data.1.count > 1, "Indexes must contain at least 2 elements!\n")
+        assert(data.1.count > 0, "Indexes must contain at least 1 elements!\n")
         self.clientString = data.0
         self.charIndexes = data.1
         return data
     }
 
-    private var charIndexes = [Int]()
-    private var clientString = ""
+    private var charIndexes = NSIndexSet()
+    private var clientString = NSString(string: "")
 
     private var recordedRange = NSRange(location: 0, length: 0)
 
@@ -253,28 +249,26 @@ class MyTextFinderClient: NSTextFinderClient {
         //print("MyTextFinderClient().stringAtIndex:effectiveRange:endsWithSearchBoundary: <-", characterIndex)
         var mutableFlag = ObjCBool(booleanLiteral: true)
         outFlag.assign(from: &mutableFlag, count: 1)
-        var mutableRange = NSRange(location: 0, length: NSString(string: self.clientString).length)
+        var mutableRange = NSRange(location: 0, length: self.clientString.length)
 
         var subString = self.clientString
-        var lowerBound = 0
-        var upperBound = 0
-        if let _ = charIndexes.firstIndex(where: {
-            let returnValue = (characterIndex==lowerBound)&&(lowerBound != $0)
-            if returnValue {
-                upperBound = $0
-            } else {
-                lowerBound = $0
-            }
-            return returnValue
-        }) {
-            mutableRange = NSMakeRange(lowerBound, upperBound-lowerBound)
-            let wholeString = NSString(string: subString)
-            subString = wholeString.substring(with: mutableRange)
-        }
+        let indexes = self.charIndexes
+        let targetIndex = characterIndex
+
+        var lowerBound = indexes.indexLessThanOrEqual(to: targetIndex)
+        if lowerBound == INT64_MAX { lowerBound = 0 }
+        let upperBound = indexes.indexGreaterThanIndex(targetIndex)
+        if upperBound == INT64_MAX { return String(subString) }
+        let regionIndex = indexes.countOfIndexes(in: NSMakeRange(0, upperBound))
+        if regionIndex == INT64_MAX { return String(subString) }
+
+        mutableRange = NSMakeRange(lowerBound, upperBound-lowerBound)
+        let wholeString = subString
+        subString = NSString(string: wholeString.substring(with: mutableRange))
         outRange.assign(from: &mutableRange, count: 1)
         //print("MyTextFinderClient().stringAtIndex:effectiveRange:endsWithSearchBoundary: ->", outRange.pointee)
 
-        return subString
+        return String(subString)
     }
 
     func stringLength() -> Int {
@@ -308,7 +302,7 @@ class MyTextFinderClient: NSTextFinderClient {
     ///
     var visibleCharacterRanges: [NSValue] {
         var values = [NSValue]()
-        values = [NSValue(range: NSMakeRange(0, NSString(string: self.clientString).length))]
+        values = [NSValue(range: NSMakeRange(0, self.clientString.length))]
         if let textView = self.documentContainerView as? NSTextView {
             values = [NSValue(range: textView.accessibilityVisibleCharacterRange())]
         }
