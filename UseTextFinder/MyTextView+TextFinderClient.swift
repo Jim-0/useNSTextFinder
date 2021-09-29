@@ -32,7 +32,7 @@ class MyTextFinderClient: NSTextFinderClient {
     }
 
     /// After: findMatchesForString:relativeToMatch:findOptions:maxResults:resultCollector:
-    @objc var documentContainerView: NSView?
+    weak var documentContainerView: NSView?
 
 
     /// methodSignatureForSelector
